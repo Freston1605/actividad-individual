@@ -1,5 +1,7 @@
 from django.shortcuts import render
+from .forms import InputForm
 
 def landing_page(request):
-    return render(request, 'landing.html')
-# Create your views here.
+    context = {}
+    context['form'] = InputForm()
+    return render(request, 'landing.html', context)
