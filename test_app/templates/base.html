@@ -36,19 +36,22 @@
           <ul class="navbar-nav ms-auto">
             <!-- Enlaces mostrados por defecto -->
             <li class="nav-item">
-              <a class="nav-link" href="#features">Características</a>
+              <a class="nav-link" href="{% url 'landing' %}#features">Características</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#pricing">Precios</a>
+              <a class="nav-link" href="{% url 'landing' %}#pricing">Precios</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#contact">Contáctanos</a>
+              <a class="nav-link" href="{% url 'landing' %}#contact">Contáctanos</a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="{% url 'user_list' %}">Lista de Usuarios</a>
             </li>
             {% if user.is_authenticated %}
               <!-- Mostrar enlaces para usuarios autenticados -->
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'welcome' %}">Bienvenida</a>
+              </li>
               <li class="nav-item">
                 <a class="nav-link" href="{% url 'logout' %}">Cerrar sesión</a>
               </li>
