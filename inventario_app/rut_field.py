@@ -1,6 +1,9 @@
 import re
+from typing import Any, Optional, Sequence, Type, Union
 from django.core.exceptions import ValidationError
 from django.db import models
+from django import forms
+from django.forms.widgets import Widget
 
 
 class RutValidator:
@@ -9,7 +12,7 @@ class RutValidator:
     def __call__(self, value):
         """Se llama cuando se invoca el validador en un valor de RUT.
 
-        Comprueba si el valor de RUT es válido utilizando el método is_valid_rut.
+        Comprueba que el RUT sea válido al verificar el formato con is_valid_rut y el código verificador con modulo_11.
         Si el RUT no es válido, lanza una excepción de ValidationError.
 
         Args:
@@ -24,7 +27,8 @@ class RutValidator:
             >>> validator("98765432-K")  # RUT válido
             >>> validator("12345678-5")  # RUT inválido, se lanza una excepción
         """
-        if value and not self.is_valid_rut(value):
+
+        if not (self.is_valid_rut(value) and self.modulo_11(value)):
             raise ValidationError("RUT inválido")
 
     @staticmethod
@@ -34,130 +38,88 @@ class RutValidator:
         Esta función toma un número de RUT en formato "12345678-9" y verifica
         si cumple con el patrón numérico y alfanumérico establecido.
 
+        Expresión regular:
+            ^: Indica el inicio del string.
+            \d{7,8}: Esto coincide con 7 a 8 dígitos consecutivos. El \d es una abreviatura para cualquier dígito del 0 al 9, y {7,8} significa que debe haber entre 7 y 8 repeticiones de \d.
+            -: Coincide con un guión literal.
+            [0-9kK]: Esto coincide con un dígito del 0 al 9 o la letra 'k' o 'K'.
+            $: Indica el final del string.
+
         Args:
             rut (str): El número de RUT a validar en formato "12345678-9".
 
         Returns:
             bool: True si el RUT es válido, False si no lo es.
-
-        Example:
-            >>> is_valid_rut("12345678-9")
-            True
-            >>> is_valid_rut("98765432-K")
-            True
-            >>> is_valid_rut("12345678-5")
-            False
         """
         rut_pattern = r"^\d{7,8}-[0-9kK]$"
         return bool(re.match(rut_pattern, rut))
 
+    @staticmethod
+    def modulo_11(rut):
+        """Algoritmo para la verificación del dígito verificador del RUT llamado "Módulo 10"
 
-class RutField(models.CharField):
+        Args:
+            rut (str): RUT completo en formato "12345678-9"
 
-    """Esta clase RutField es una subclase de models.CharField, que es un campo de texto en un modelo de Django.
-    La clase personaliza el comportamiento del campo de texto para que pueda manejar los RUT de manera específica.
+        Returns:
+            bool: True si el dígito verificador es correcto y False en el caso contrario
+        """
 
-    Atributos de clase:
-        default_validators = [RutValidator()]: Aquí se establece que el validador personalizado RutValidator se utilizará por defecto para validar los valores ingresados en este campo.
-        description = "RUT (Rol Único Tributario)": Se proporciona una descripción para el campo.
-    """
+        # Variable que almacena el resultado de la verificación
+        digit_check = False
 
-    default_validators = [RutValidator()]
-    description = "RUT (Rol Único Tributario)"
+        # Separador de número y dígito verificador (12345678-9 = [12345678, 9])
+        lista_rut = rut.split("-", 1)
 
+        # Número del RUT (12345678)
+        numero_rut = lista_rut[0]
+
+        # Dígito verificador del RUT (9)
+        digito_rut = lista_rut[1]
+
+        # Fáctor inicial de ponderación del cálculo para código de control
+        factor = 2
+
+        # Total inicial de la suma del producto del dígito del número del RUT con el factor ponderación
+        total = 0
+
+        # Cálculo del total del RUT utilizando el método del módulo 10
+        for digit in reversed(numero_rut):
+            total += int(digit) * factor
+            factor = (factor + 1) % 8 or 2
+
+        # Cálculo del módulo del RUT
+        divisor = 11
+        modulo_rut = total % divisor
+
+        # Verificación del dígito ingresado
+        verificaciones = {
+            "0": 11,
+            "1": 0,
+            "2": 9,
+            "3": 8,
+            "4": 7,
+            "5": 6,
+            "6": 5,
+            "7": 4,
+            "8": 3,
+            "9": 2,
+            "k": 10,
+        }
+
+        # Prueba lógica del dígito verificador
+        if verificaciones.get(digito_rut.lower()) == modulo_rut:
+            digit_check = True
+        return digit_check
+
+
+from django import forms
+
+class RutField(forms.Field):
     def __init__(self, *args, **kwargs):
-        """El constructor inicializa el campo con una longitud máxima de 12 caracteres."""
-        kwargs["max_length"] = 12
         super().__init__(*args, **kwargs)
+        # Aquí puedes personalizar la inicialización del campo
 
-    def to_python(self, value):
-        """Convierte y normaliza un valor de RUT recuperado de la base de datos.
-
-        Este método se utiliza para transformar un valor de RUT recuperado de la base de datos
-        en una forma normalizada que puede ser manipulada y utilizada en el código.
-
-        Args:
-            value (str): El valor de RUT recuperado de la base de datos.
-
-        Returns:
-            str: El valor de RUT convertido y normalizado.
-
-        Example:
-            >>> field = RutField()
-            >>> field.to_python("12.345.678-9")
-            '123456789'
-            >>> field.to_python("98765432-K")
-            '98765432K'
-            >>> field.to_python(None)
-            None
-        """
-        if value is None:
-            return value
-        return value.replace(".", "").replace("-", "").strip().upper()
-
-    def from_db_value(self, value, expression, connection):
-        """Convierte un valor de RUT desde la base de datos en una forma utilizable.
-
-        Este método se utiliza para transformar un valor de RUT que ha sido recuperado de la base de datos
-        en una forma que pueda ser utilizada y manipulada en el código de la aplicación.
-
-        Args:
-            value (str): El valor de RUT recuperado de la base de datos.
-            expression: (_type_): _description_ (Descripción del objeto de expresión, si aplica).
-            connection (_type_): _description_ (Descripción del objeto de conexión, si aplica).
-
-        Returns:
-            _type_: El valor de RUT convertido y listo para su uso.
-
-        Example:
-            >>> field = RutField()
-            >>> field.from_db_value("12.345.678-9", None, None)
-            '123456789'
-            >>> field.from_db_value("98765432-K", None, None)
-            '98765432K'
-        """
-        return self.to_python(value)
-
-    def get_prep_value(self, value):
-        """Prepara y normaliza un valor de RUT para ser almacenado en la base de datos.
-
-        Este método se utiliza para convertir y normalizar un valor de RUT antes de almacenarlo
-        en la base de datos. Realiza la misma conversión que el método to_python.
-
-        Args:
-            value (str): El valor de RUT a ser preparado para almacenamiento.
-
-        Returns:
-            str: El valor de RUT convertido y normalizado, listo para ser almacenado.
-
-        Example:
-            >>> field = RutField()
-            >>> field.get_prep_value("12.345.678-9")
-            '123456789'
-            >>> field.get_prep_value("98765432-K")
-            '98765432K'
-        """
-        return self.to_python(value)
-
-    def formfield(self, **kwargs):
-        """Devuelve un objeto de campo de formulario para el campo RUT.
-
-        Este método se utiliza para generar un objeto de campo de formulario que se puede
-        utilizar en los formularios de Django para manejar el campo RUT. Se pueden proporcionar
-        argumentos adicionales para personalizar el objeto de campo.
-
-        Args:
-            **kwargs: Argumentos opcionales para personalizar el objeto de campo.
-
-        Returns:
-            RutFormField: Un objeto de campo de formulario para el campo RUT.
-
-        Example:
-            >>> field = RutField()
-            >>> form_field = field.formfield()
-            >>> form_field.label
-            'RUT (Rol Único Tributario)'
-        """
-        defaults = {"form_class": RutFormField}
-        defaults.update(kwargs)
-        return super().formfield(**defaults)
+    def clean(self, value):
+        # Aquí puedes realizar la validación y limpieza del valor del RUT
+        # Si es válido, puedes devolver el valor limpio, de lo contrario, levanta una ValidationError

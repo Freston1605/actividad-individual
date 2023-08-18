@@ -1,70 +1,47 @@
 from django.db import models
 from .rut_field import RutField
 
-# Define las opciones de categorías como una lista de elecciones (choices)
-CATEGORIA_CHOICES = [
-    ("lluvia", "Protección contra aguas lluvias"),
-    ("ventilacion", "Ventilación"),
-    ("accesorios", "Accesorios de instalación"),
-]
-
-# Define las opciones de cada categoría como atributos de clase
-LLUVIA_CHOICES = [
-    ("canal", "Canal"),
-    ("bajada", "Bajada"),
-    ("caballete", "Caballete"),
-    ("cubierta_americana", "Cubierta americana"),
-    ("cubierta_acanalada", "Cubierta acanalada"),
-    ("cubierta_pizarreño", "Cubierta pizarreño"),
-    ("cubierta_otra", "Cubierta otra"),
-    ("otros", "Otros"),
-]
-
-VENTILACION_CHOICES = [
-    ("gorro_chino", "Gorro chino"),
-    ("gorro_cometa", "Gorro cometa"),
-    ("gorro_eolico", "Gorro eólico"),
-    ("tubo", "Tubo"),
-    ("ducto", "Ducto"),
-    ("anillo", "Anillo"),
-    ("conector_t", "Conector T"),
-    ("campana", "Campana"),
-    ("otros", "Otros"),
-]
-
-ACCESORIO_CHOICES = [
-    ("abrazadera", "Abrazadera"),
-    ("gancho", "Gancho"),
-    ("boquilla", "Boquilla"),
-    ("cubeta", "Cubeta"),
-    ("remache", "Remache"),
-    ("silicona", "Silicona"),
-    ("reduccion", "Reducción"),
-    ("otros", "Otros"),
-]
-
 
 class Material(models.Model):
-    """Clase para los materiales de las planchas de las que están los productos."""
+    """Clase para los materiales de las planchas de las que están los productos.
 
+    Args:
+        models(module): Clase de Django de la que se hereda la funcionalidad de los modelos.
+
+    """
+
+    # Campo para los elementos que componen el material (zinc, aluminio, entre otros)
     composicion = models.CharField(
         ("Elementos de los que está hecha la plancha"), max_length=50
     )
-    espesor = models.IntegerField(("Espesor de la plancha"))
+    # Campo para el espesor de la plancha en centímetros
+    espesor = models.DecimalField(
+        "Espesor de la plancha en centímetros", max_digits=1, decimal_places=3
+    )
+    # Campo booleano para marcar una plancha como prepintada o no
     prepintado = models.BooleanField(("Plancha prepintada o sin pintar"))
+    
+    # Campo para asignar un color al prepintado de una plancha
     color = models.CharField(
         ("Color de la plancha prepintada"), max_length=50, null=True, blank=True
     )
 
 
 class Trabajador(models.Model):
-    """Clase para los trabajadores de la hojalatería"""
+    """Clase para los trabajadores de la hojalatería
+    
+    Args:
+        models(module): Clase de Django de la que se hereda la funcionalidad de los modelos.
+    """
 
+    # Campo para asociar un modelo de usuario al trabajador
     user = models.ForeignKey(
         "app.Model",
         verbose_name=("Usuario asociado al trabajador"),
         on_delete=models.CASCADE,
     )
+    
+    # Campo para asociar un modelo de sucursal al trabajador
     sucursal = models.ForeignKey(
         "app.Model",
         verbose_name=("Sucursal en la que el trabajador se desempeña"),
@@ -72,22 +49,36 @@ class Trabajador(models.Model):
         null=True,
         blank=True,
     )
+    
+    # Campo para registrar el RUT del trabajador
     rut = RutField()
     direccion = models.CharField(
         ("Dirección del trabajador"), max_length=200, null=True, blank=True
     )
+    
+    # Campo para registrar un número de contacto del trabajador
     telefono = models.CharField(
         ("Teléfono de contacto del trabajador"), null=True, blank=True
     )
 
 
 class Sucursal(models.Model):
-    """Modelo para las sucursales del negocio"""
+    """Modelo para las sucursales del negocio
 
-    direccion = models.CharField(("Dirección de la sucursal"), max_length=50)
-    telefono = models.PhoneNumberField(
-        ("Número de teléfono de la sucursal"), null=True, blank=True
+    Args:
+    models(module): Clase de Django de la que se hereda la funcionalidad de los modelos.
+
+    """
+
+    # Campo para la dirección de la sucursal
+    direccion = models.CharField(("Dirección de la sucursal"), max_length=200)
+
+    # Campo para el teléfono de contacto de la sucursal
+    telefono = models.CharField(
+        ("Número de teléfono de la sucursal"), null=False, blank=False
     )
+
+    # Campo para los trabajadores asociados a la sucursal
     trabajadores = models.ManyToManyField(
         "app.Model",
         verbose_name=("Trabajadores asociados a la sucursal"),
@@ -97,94 +88,56 @@ class Sucursal(models.Model):
 
 
 class Sobrante(models.Model):
-    """Modelo para el material sobrante a ser reutilizado"""
+    """Modelo para el material sobrante a ser reutilizado
 
+    Args:
+        models(module): Clase de Django de la que se hereda la funcionalidad de los modelos.
+    """
+
+    # Campo para el modelo del material que compone el sobrante
     material = models.ForeignKey(
         Material,
         verbose_name=("Material del que está hecho la plancha"),
         on_delete=models.PROTECT,
     )
+    # campo para el número de existencias en inventario
     existencias = models.IntegerField(("Número en inventario"))
-    sucursal = models.ForeignKey(Sucursal, verbose_name=("Modelo de la sucursal en la que está el objeto"), on_delete=models.CASCADE)
-    largo = models.DecimalField(max_digits=5, decimal_places=2)
-    ancho = models.DecimalField(max_digits=5, decimal_places=2)
-    alto = models.DecimalField(max_digits=5, decimal_places=2)
+    # Campo para la sucursal que almacena el sobrante
+    sucursal = models.ForeignKey(
+        Sucursal,
+        verbose_name=("Modelo de la sucursal en la que está el objeto"),
+        on_delete=models.CASCADE,
+    )
+    # Camnpos para las dimensiones del sobrante en metros
+    largo = models.DecimalField(max_digits=3, decimal_places=2)
+    ancho = models.DecimalField(max_digits=3, decimal_places=2)
 
 
 class ProductoHojalateria(models.Model):
-    """Clase para todos los productos de hojalatería"""
+    """Clase para todos los productos de hojalatería
 
+    Args:
+        models(module): Clase de Django de la que se hereda la funcionalidad de los modelos.
+    """
+
+    # Campo para la categoría del producto en el formulario RegistroProductoForm se detallan las opciones
+    categoria = models.CharField("Tipo de producto", max_length=100)
+
+    # Campo para el número en inventario
     existencias = models.IntegerField(("Número disponible en inventario"))
-    material = models.ForeignKey(
-        ("Material del que está hecho el producto"),
-        Material,
-        on_delete=models.PROTECT,
+
+    # Campo para el modelo de los materiales de los que están hechos los productos
+    material = models.ManyToManyField(
+        Material, verbose_name=("Material del que está hecho el producto")
     )
-    trabajador = models.ForeignKey(
-        ("Trabajador que fabricó el producto"), Trabajador, on_delete=models.CASCADE
+
+    # Campo para los modelos de los trabajadores que hicieron el producto
+    Trabajador = models.ManyToManyField(
+        Trabajador, verbose_name=("Trabajadores que fabricaron el producto")
     )
-    largo = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    ancho = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    alto = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    radio = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    categoria = models.CharField(
-        ("Categoría de producto según uso"), max_length=20, choices=CATEGORIA_CHOICES
-    )
-    nombre = models.CharField(("Tipo de producto"), max_length=100, choices=[])
 
-    # Define las opciones de cada categoría como atributos de clase
-    LLUVIA_CHOICES = [
-        ("canal", "Canal"),
-        ("bajada", "Bajada"),
-        ("caballete", "Caballete"),
-        ("cubierta_americana", "Cubierta americana"),
-        ("cubierta_acanalada", "Cubierta acanalada"),
-        ("cubierta_pizarreño", "Cubierta pizarreño"),
-        ("cubierta_otra", "Cubierta otra"),
-        ("otros", "Otros"),
-    ]
-
-    VENTILACION_CHOICES = [
-        ("gorro_chino", "Gorro chino"),
-        ("gorro_cometa", "Gorro cometa"),
-        ("gorro_eolico", "Gorro eólico"),
-        ("tubo", "Tubo"),
-        ("ducto", "Ducto"),
-        ("anillo", "Anillo"),
-        ("conector_t", "Conector T"),
-        ("campana", "Campana"),
-        ("otros", "Otros"),
-    ]
-
-    ACCESORIO_CHOICES = [
-        ("abrazadera", "Abrazadera"),
-        ("gancho", "Gancho"),
-        ("boquilla", "Boquilla"),
-        ("cubeta", "Cubeta"),
-        ("remache", "Remache"),
-        ("silicona", "Silicona"),
-        ("reduccion", "Reducción"),
-        ("otros", "Otros"),
-    ]
-
-
-    def get_nombre_choices(self):
-        # Obtener las opciones según la categoría seleccionada
-        categoria_choices = {
-            "lluvia": self.LLUVIA_CHOICES,
-            "ventilacion": self.VENTILACION_CHOICES,
-            "accesorios": self.ACCESORIO_CHOICES,
-        }.get(self.categoria, [])
-
-        # Devolver las opciones como una lista de tuplas en el formato requerido por el campo "nombre"
-        return [(opcion, opcion) for opcion in categoria_choices]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Actualiza las opciones según la categoría seleccionada
-        if self.categoria == "lluvia":
-            self._meta.get_field("nombre").choices = LLUVIA_CHOICES
-        elif self.categoria == "ventilacion":
-            self._meta.get_field("nombre").choices = VENTILACION_CHOICES
-        elif self.categoria == "accesorios":
-            self._meta.get_field("nombre").choices = ACCESORIO_CHOICES
+    # Campo provisorio para las dimensiones del producto en metros
+    largo = models.DecimalField(max_digits=3, decimal_places=3, null=True, blank=True)
+    ancho = models.DecimalField(max_digits=3, decimal_places=3, null=True, blank=True)
+    alto = models.DecimalField(max_digits=3, decimal_places=3, null=True, blank=True)
+    radio = models.DecimalField(max_digits=3, decimal_places=3, null=True, blank=True)
